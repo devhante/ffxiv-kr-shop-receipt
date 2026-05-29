@@ -72,6 +72,22 @@ async function generateReceipt() {
     return GROUP[productMap[name]] || "기타";
   }
 
+  // 12분류별 행 배경색 (이용권=부가서비스, 의상=염료, 탈것=꼬마 친구는 같은 색)
+  var COLOR = {
+    이용권: "#FFEAEA", // 이용권·부가서비스 같은 색 (연빨강)
+    부가서비스: "#FFEAEA",
+    환상약: "#E1F0FF", // 하늘색
+    의상: "#E1EDD1", // 의상·염료 같은 색 (연두)
+    염료: "#E1EDD1",
+    탈것: "#FFF3D6", // 탈것·꼬마 친구 같은 색 (연노랑)
+    "꼬마 친구": "#FFF3D6",
+    "감정 표현": "#FCE4EC", // 분홍
+    "오케스트리온 악보": "#EDE7F6", // 연보라
+    하우징: "#E0F2F1", // 청록
+    기타: "#ECEFF1", // 회색빛
+    미분류: "", // 색 없음
+  };
+
   // ── 조회: 연 단위(서버 1년 제한) × 페이지네이션 ──
   var counts = {},
     values = {};
@@ -139,7 +155,7 @@ async function generateReceipt() {
               totalCount += 1;
               totalValue += priceNum;
               if (cat === "미분류") etcNames[name] = (etcNames[name] || 0) + 1;
-              bg = "";
+              bg = COLOR[cat] || "";
             }
 
             rowsHtml += bg ? '<tr style="background:' + bg + ';">' : "<tr>";
@@ -169,8 +185,11 @@ async function generateReceipt() {
 
   // ── 합계 섹션 ──
   function sumRow(label, cnt, val) {
+    var bg = COLOR[label] || "#fafafa";
     return (
-      '<tr style="font-weight:bold;background:#fafafa;"><td>' +
+      '<tr style="font-weight:bold;background:' +
+      bg +
+      ';"><td>' +
       label +
       "</td>" +
       '<td class="txt_c5">' +
