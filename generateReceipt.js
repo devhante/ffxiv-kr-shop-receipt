@@ -159,9 +159,7 @@ async function generateReceipt() {
               bg = COLOR[cat] || "";
             }
 
-            var rowHtml = bg
-              ? '<tr style="background:' + bg + ';">'
-              : "<tr>";
+            var rowHtml = bg ? '<tr style="background:' + bg + ';">' : "<tr>";
             rowHtml += "<td>" + date + ' <span class="mo"></span></td>';
             rowHtml +=
               '<td data-title data-padding3><span class="txt_c5" title="' +
@@ -246,7 +244,7 @@ async function generateReceipt() {
   if (refundCount > 0)
     subRows.push({
       style: "font-weight:bold;background:#F0F0F0;color:#999;",
-      label: "청약철회 (합계 제외)",
+      label: "청약철회<br>(합계 제외)",
       cnt: comma(refundCount) + "건",
       val: comma(refundValue) + " 크리스탈",
     });
