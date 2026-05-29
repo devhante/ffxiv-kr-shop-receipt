@@ -131,7 +131,8 @@ async function generateReceipt() {
 
           for (var i = 0; i < list.length; i++) {
             var item = list[i];
-            var name = item.packageName || "";
+            // 일부 상품명은 API가 앞뒤 공백을 붙여 내려줌 → 분류·표시 매칭을 위해 정리
+            var name = (item.packageName || "").trim();
             var date = item.resultDate || "";
             var priceStr = item.price || "0";
             var priceNum = toNum(priceStr);
