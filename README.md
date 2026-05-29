@@ -119,6 +119,23 @@ async function generateReceipt() {
     return GROUP[productMap[name]] || "기타";
   }
 
+  // 12분류별 행 배경색
+  // 이용권 → 하우징까지는 무지개색(빨강→보라) 순서로 부드럽게 배치
+  var COLOR = {
+    이용권: "#FFD9D9", // 빨강
+    부가서비스: "#FFE6CC", // 주황
+    환상약: "#FFF7CC", // 노랑
+    의상: "#ECF7CC", // 연두
+    염료: "#D6F2D6", // 초록
+    탈것: "#CCF2EA", // 청록
+    "꼬마 친구": "#CCE9F7", // 하늘
+    "감정 표현": "#D6DDF7", // 파랑
+    "오케스트리온 악보": "#E0D6F7", // 남색
+    하우징: "#F2D6F2", // 보라
+    기타: "#ECEFF1", // 회색빛
+    미분류: "", // 색 없음
+  };
+
   // ── 조회: 연 단위(서버 1년 제한) × 페이지네이션 ──
   var counts = {},
     values = {};
@@ -128,7 +145,7 @@ async function generateReceipt() {
     refundValue = 0;
   var etcNames = {},
     allRecords = [],
-    rowsHtml = "";
+    detailRows = [];
 
   $tbody.html(
     '<tr><td colspan="4">전체 기간 조회 중… 잠시만 기다려 주세요.</td></tr>',
@@ -186,22 +203,25 @@ async function generateReceipt() {
               totalCount += 1;
               totalValue += priceNum;
               if (cat === "미분류") etcNames[name] = (etcNames[name] || 0) + 1;
-              bg = "";
+              bg = COLOR[cat] || "";
             }
 
-            rowsHtml += bg ? '<tr style="background:' + bg + ';">' : "<tr>";
-            rowsHtml += "<td>" + date + ' <span class="mo"></span></td>';
-            rowsHtml +=
+            var rowHtml = bg
+              ? '<tr style="background:' + bg + ';">'
+              : "<tr>";
+            rowHtml += "<td>" + date + ' <span class="mo"></span></td>';
+            rowHtml +=
               '<td data-title data-padding3><span class="txt_c5" title="' +
               name +
               '"> ' +
               name +
               "</span></td>";
-            rowsHtml +=
+            rowHtml +=
               '<td class="txt_c5" data-price>' + priceStr + " 크리스탈</td>";
-            rowsHtml +=
+            rowHtml +=
               '<td class="txt_c5" data-state>' + stateLabel(code) + "</td>";
-            rowsHtml += "</tr>";
+            rowHtml += "</tr>";
+            detailRows.push({ date: date, html: rowHtml });
           }
         },
         error: function (xhr) {
@@ -214,59 +234,109 @@ async function generateReceipt() {
     }
   }
 
-  // ── 합계 섹션 ──
-  function sumRow(label, cnt, val) {
+  // ── 합계 섹션 (표 맨 앞에 배치) ──
+  // 계(총 합계) · 소계(분류별) · 세부사항을 가로 구분선으로 나눔
+  var DIVIDER = "1px solid #000000";
+
+  // (옵션) 윗변·아랫변 구분선을 붙여 4칸짜리 한 행 생성
+  // cellStyle: 각 칸(td)에 직접 적용할 스타일 (txt_c5 클래스보다 우선)
+  function sumRow(rowStyle, label, cnt, val, topLine, bottomLine, cellStyle) {
+    var bd = cellStyle || "";
+    if (topLine) bd += "border-top:" + DIVIDER + ";";
+    if (bottomLine) bd += "border-bottom:" + DIVIDER + ";";
     return (
-      '<tr style="font-weight:bold;background:#fafafa;"><td>' +
+      '<tr style="' +
+      rowStyle +
+      '"><td style="' +
+      bd +
+      '">' +
       label +
-      "</td>" +
-      '<td class="txt_c5">' +
-      comma(cnt) +
-      "건</td>" +
-      '<td class="txt_c5">' +
-      comma(val) +
-      ' 크리스탈</td><td class="txt_c5">-</td></tr>'
+      '</td><td class="txt_c5" style="' +
+      bd +
+      '">' +
+      cnt +
+      '</td><td class="txt_c5" style="' +
+      bd +
+      '">' +
+      val +
+      '</td><td class="txt_c5" style="' +
+      bd +
+      '">-</td></tr>'
     );
   }
-  rowsHtml +=
-    '<tr style="font-weight:bold;background:#dfe7ff;"><td>총 합계</td>' +
-    '<td class="txt_c5">' +
-    comma(totalCount) +
-    "건</td>" +
-    '<td class="txt_c5">' +
-    comma(totalValue) +
-    ' 크리스탈</td><td class="txt_c5">-</td></tr>';
 
+  // 소계: 분류별 합계 + 청약철회
   var ORDER = [
     "이용권",
-    "환상약",
     "부가서비스",
+    "환상약",
     "의상",
     "염료",
     "탈것",
-    "감정 표현",
     "꼬마 친구",
+    "감정 표현",
     "오케스트리온 악보",
     "하우징",
     "기타",
     "미분류",
   ];
+  var subRows = [];
   ORDER.forEach(function (cat) {
-    if (counts[cat] > 0) rowsHtml += sumRow(cat, counts[cat], values[cat]);
+    if (counts[cat] > 0)
+      subRows.push({
+        style: "font-weight:bold;background:" + (COLOR[cat] || "#fafafa") + ";",
+        label: cat,
+        cnt: comma(counts[cat]) + "건",
+        val: comma(values[cat]) + " 크리스탈",
+      });
+  });
+  if (refundCount > 0)
+    subRows.push({
+      style: "font-weight:bold;background:#F0F0F0;color:#999;",
+      label: "청약철회 (합계 제외)",
+      cnt: comma(refundCount) + "건",
+      val: comma(refundValue) + " 크리스탈",
+    });
+
+  // 계: 총 합계 — 윗변 구분선 + 글씨 강조 (소계가 없으면 아랫변도 구분선)
+  var summaryHtml = sumRow(
+    "font-weight:bold;font-size:1.08em;background:#dfe7ff;",
+    "총 합계",
+    comma(totalCount) + "건",
+    comma(totalValue) + " 크리스탈",
+    true,
+    subRows.length === 0,
+    "font-weight:bold;",
+  );
+
+  // 소계 첫 행 윗변(계와 구분) · 마지막 행 아랫변(세부사항과 구분)에만 구분선
+  subRows.forEach(function (r, idx) {
+    summaryHtml += sumRow(
+      r.style,
+      r.label,
+      r.cnt,
+      r.val,
+      idx === 0,
+      idx === subRows.length - 1,
+    );
   });
 
-  if (refundCount > 0) {
-    rowsHtml +=
-      '<tr style="font-weight:bold;background:#F0F0F0;color:#999;"><td>청약철회 (합계 제외)</td>' +
-      '<td class="txt_c5">' +
-      comma(refundCount) +
-      "건</td>" +
-      '<td class="txt_c5">' +
-      comma(refundValue) +
-      ' 크리스탈</td><td class="txt_c5">-</td></tr>';
+  // ── 상세 구매 내역: 최근 구매가 위로 오도록 날짜 내림차순 정렬 ──
+  function dateKey(s) {
+    return String(s).replace(/\D/g, "");
   }
+  detailRows.sort(function (a, b) {
+    var x = dateKey(a.date),
+      y = dateKey(b.date);
+    return x < y ? 1 : x > y ? -1 : 0;
+  });
+  var detailHtml = detailRows
+    .map(function (r) {
+      return r.html;
+    })
+    .join("");
 
-  $tbody.html(rowsHtml);
+  $tbody.html(summaryHtml + detailHtml);
 
   // ── 미분류 목록 콘솔 출력 ──
   var etcList = Object.keys(etcNames).map(function (n) {
